@@ -1,0 +1,10 @@
+# conda create -n csci946-a3 -c conda-forge --override-channels python=3.11
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# pip install -r A3_requirements.txt
+numpy
+pandas
+scikit-learn
+matplotlib
+pyyaml
+huggingface_hub
+safetensors
