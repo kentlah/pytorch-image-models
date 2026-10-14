@@ -113,17 +113,33 @@ print("chosen:", chosen[["hidden", "dropout", "weight_decay"]].to_dict())
 
 # 4. Final model
 # trained on all training rows with the chosen setting; epochs are picked on the validation set
-t0 = time.time()
-model, history = train(to_tensor(X_full), y_full, Xs_val, y_val,
-                       int(chosen.hidden), chosen.dropout, chosen.weight_decay, FINAL_EPOCHS)
-train_seconds = time.time() - t0
-history.to_csv(OUT / "mlp_final_history.csv", index=False)
-print(history.round(4).to_string(index=False))
+# the trained model is saved, so the test sets can be scored later without training again
+MODEL_FILE = PROC / "mlp_final.pt"
+if MODEL_FILE.exists():
+    saved = torch.load(MODEL_FILE)
+    model = make_mlp(saved["hidden"], saved["dropout"]).to(DEVICE)
+    model.load_state_dict(saved["state"])
+    train_seconds = saved["train_seconds"]
+else:
+    t0 = time.time()
+    model, history = train(to_tensor(X_full), y_full, Xs_val, y_val,
+                           int(chosen.hidden), chosen.dropout, chosen.weight_decay, FINAL_EPOCHS)
+    train_seconds = time.time() - t0
+    history.to_csv(OUT / "mlp_final_history.csv", index=False)
+    print(history.round(4).to_string(index=False))
+    torch.save({"state": model.state_dict(), "hidden": int(chosen.hidden), "dropout": chosen.dropout,
+                "train_seconds": train_seconds}, MODEL_FILE)
+history = pd.read_csv(OUT / "mlp_final_history.csv")
+top1, top5 = accuracy(predict(model, Xs_val), y_val)
+print("final model, validation: top-1 %.4f, top-5 %.4f, training time %.0fs" % (top1, top5, train_seconds))
 
 
 # 5. Evaluate on both test sets (once, after all choices are made)
 results, predictions = [], []
 for name, label in [("test1", "test set 1 (ImageNet val)"), ("test2", "test set 2 (ImageNetV2)")]:
+    if not (PROC / f"{name}_X.npy").exists():
+        print(name, "not found, skipped")
+        continue
     X_test, y_test = load(name)
     t0 = time.time()
     top = predict(model, to_tensor(X_test))
@@ -131,11 +147,11 @@ for name, label in [("test1", "test set 1 (ImageNet val)"), ("test2", "test set 
     results.append({"model": "MLP", "test_set": label, "rows": len(y_test), "top1": top1, "top5": top5,
                     "train_seconds": train_seconds, "predict_seconds": time.time() - t0})
     predictions.append(pd.DataFrame({"test_set": name, "row": np.arange(len(y_test)), "label": y_test, "pred": top[:, 0]}))
-results = pd.DataFrame(results)
-results.to_csv(OUT / "mlp_results.csv", index=False)
-pd.concat(predictions).to_csv(OUT / "mlp_predictions.csv", index=False)
-print(results.round(4).to_string(index=False))
-print("top-1 gap (test set 1 - test set 2): %.1f points" % (100 * (results.top1[0] - results.top1[1])))
+if results:
+    results = pd.DataFrame(results)
+    results.to_csv(OUT / "mlp_results.csv", index=False)
+    pd.concat(predictions).to_csv(OUT / "mlp_predictions.csv", index=False)
+    print(results.round(4).to_string(index=False))
 
 fig, ax = plt.subplots(figsize=(6.2, 3.4))
 ax.plot(history.epoch, history.val_top1, marker="o", color="#2a78d6", label="validation top-1")
