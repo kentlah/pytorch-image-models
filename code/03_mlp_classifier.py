@@ -127,7 +127,7 @@ else:
     train_seconds = time.time() - t0
     history.to_csv(OUT / "mlp_final_history.csv", index=False)
     print(history.round(4).to_string(index=False))
-    torch.save({"state": model.state_dict(), "hidden": int(chosen.hidden), "dropout": chosen.dropout,
+    torch.save({"state": model.state_dict(), "hidden": int(chosen.hidden), "dropout": float(chosen.dropout),
                 "train_seconds": train_seconds}, MODEL_FILE)
 history = pd.read_csv(OUT / "mlp_final_history.csv")
 top1, top5 = accuracy(predict(model, Xs_val), y_val)
