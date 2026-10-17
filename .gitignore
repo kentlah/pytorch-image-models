@@ -119,3 +119,8 @@ Testing notebook.ipynb
 /*.png
 /*.zip
 /*.tar.*
+
+# Local assignment datasets and trained models
+/data/raw/
+/data/processed/
+/data/models/
