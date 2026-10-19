@@ -60,6 +60,8 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=0.0001)
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--patience", type=int, default=3)
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Replace this run's existing history and checkpoint.")
     args = parser.parse_args()
 
     if not 1 <= args.per_class <= 100:
@@ -115,14 +117,15 @@ def main() -> None:
     model_dir = ROOT / "data" / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    run_name = f"classifier_a_{mode}_alpha{args.alpha:g}_epochs{args.epochs}"
+    prefix = "classifier_a_full" if args.full else f"classifier_a_dev_{mode}"
+    run_name = f"{prefix}_alpha{args.alpha:g}_epochs{args.epochs}"
     history_path = OUT / f"{run_name}.csv"
     checkpoint_path = model_dir / f"{run_name}_best.joblib"
 
-    if history_path.exists() or checkpoint_path.exists():
+    if (history_path.exists() or checkpoint_path.exists()) and not args.overwrite:
         raise FileExistsError(
             f"Outputs already exist for {run_name}. "
-            "Move the previous outputs before repeating this run."
+            "Use --overwrite to regenerate this run, or back up its outputs first."
         )
 
     print(
@@ -231,89 +234,6 @@ def main() -> None:
     print(f"History: {history_path}")
     print(f"Best model and scaler: {checkpoint_path}")
 
-    # X = load_array("train_small_X")
-    # y = load_array("train_small_y")
-    # X_val = load_array("val_X")
-    # y_val = load_array("val_y")
-
-    # classes = np.unique(y)
-    # if not np.array_equal(classes, np.arange(1000)):
-    #     raise ValueError("Expected training labels 0 through 999.")
-    # if X.shape != (len(y), 1024) or X_val.shape != (len(y_val), 1024):
-    #     raise ValueError("Unexpected feature or label dimensions.")
-
-    # rng = np.random.default_rng(SEED)
-    # selected = np.concatenate([
-    #     rng.choice(
-    #         np.flatnonzero(y == label),
-    #         size=args.per_class,
-    #         replace=False,
-    #     )
-    #     for label in classes
-    # ])
-
-    # # Fit preprocessing only on the selected training examples.
-    # X_train = np.asarray(X[selected])
-    # y_train = np.asarray(y[selected])
-    # if not np.isfinite(X_train).all():
-    #     raise ValueError("Training features contain non-finite values.")
-
-    # scaler = StandardScaler()
-    # X_train = scaler.fit_transform(X_train)
-
-    # model = SGDClassifier(
-    #     loss="log_loss",
-    #     penalty="l2",
-    #     alpha=args.alpha,
-    #     random_state=SEED,
-    #     n_jobs=4,
-    # )
-
-    # print(
-    #     f"Training rows: {len(y_train):,}; "
-    #     f"validation rows: {len(y_val):,}; alpha={args.alpha}",
-    #     flush=True,
-    # )
-
-    # history = []
-    # with threadpool_limits(limits=4):
-    #     for epoch in range(1, args.epochs + 1):
-    #         start_time = time.perf_counter()
-    #         order = rng.permutation(len(y_train))
-
-    #         for start in range(0, len(order), BATCH_SIZE):
-    #             rows = order[start:start + BATCH_SIZE]
-    #             model.partial_fit(
-    #                 X_train[rows],
-    #                 y_train[rows],
-    #                 classes=classes,
-    #             )
-
-    #         top1, top5 = evaluate(model, scaler, X_val, y_val)
-    #         seconds = time.perf_counter() - start_time
-    #         history.append({
-    #             "seed": SEED,
-    #             "per_class": args.per_class,
-    #             "alpha": args.alpha,
-    #             "epoch": epoch,
-    #             "val_top1": top1,
-    #             "val_top5": top5,
-    #             "seconds": seconds,
-    #         })
-    #         print(
-    #             f"epoch={epoch} val_top1={top1:.4f} "
-    #             f"val_top5={top5:.4f} seconds={seconds:.1f}",
-    #             flush=True,
-    #         )
-
-    # OUT.mkdir(parents=True, exist_ok=True)
-    # name = (
-    #     f"classifier_a_dev_n{args.per_class}"
-    #     f"_alpha{args.alpha:g}_epochs{args.epochs}.csv"
-    # )
-    # destination = OUT / name
-    # pd.DataFrame(history).to_csv(destination, index=False)
-    # print(f"Saved: {destination}")
 
 
 if __name__ == "__main__":
